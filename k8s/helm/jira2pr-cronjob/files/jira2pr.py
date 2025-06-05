@@ -1,0 +1,1 @@
+../../../../jira2pr/jira2pr.py

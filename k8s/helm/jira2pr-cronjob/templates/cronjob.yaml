@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: jira2pr-batch-update
+  namespace: {{ .Values.namespace }}
+spec:
+  schedule: {{ .Values.cronSchedule | quote }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: jira2pr
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  pip install uv
+                  cd /scripts
+                  uv sync
+                  uv run python jira2pr.py --batch-update
+              env:
+                - name: JIRA_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secretName }}
+                      key: jira-url
+                - name: JIRA_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secretName }}
+                      key: jira-username
+                - name: JIRA_API_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secretName }}
+                      key: jira-api-token
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secretName }}
+                      key: github-token
+                - name: GITHUB_OWNER
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secretName }}
+                      key: github-owner
+                - name: GITHUB_REPO
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secretName }}
+                      key: github-repo
+              volumeMounts:
+                - name: script-volume
+                  mountPath: /scripts
+              resources:
+{{ toYaml .Values.resources | indent 16 }}
+          volumes:
+            - name: script-volume
+              configMap:
+                name: {{ .Values.configMapName }}
+                defaultMode: 0755
+          restartPolicy: OnFailure

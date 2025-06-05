@@ -1,0 +1,37 @@
+# Default values for jira2pr-cronjob
+# This is a YAML-formatted file.
+
+# Namespace to deploy the cronjob
+namespace: default
+
+# Cron schedule for the job
+# Default: Run every 2 minutes
+cronSchedule: "0/2 * * * *"
+
+# Job history limits
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+
+# Concurrency policy: Forbid, Allow, or Replace
+concurrencyPolicy: Forbid
+
+# Container image
+image:
+  repository: python
+  tag: 3.10-slim
+  pullPolicy: IfNotPresent
+
+# Secret name containing the required credentials
+secretName: kestra-secrets
+
+# ConfigMap name for the script
+configMapName: jira2pr-script
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi

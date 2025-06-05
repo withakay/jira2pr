@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.configMapName }}
+  namespace: {{ .Values.namespace }}
+data:
+  jira2pr.py: |-
+{{ .Files.Get "files/jira2pr.py" | indent 4 }}
+  pyproject.toml: |-
+{{ .Files.Get "files/pyproject.toml" | indent 4 }}
+  uv.lock: |-
+{{ .Files.Get "files/uv.lock" | indent 4 }}

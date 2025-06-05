@@ -1,0 +1,6 @@
+export JIRA_URL="<< https://your-org-here.atlassian.net >>"
+export JIRA_USERNAME="<< j.bloggs@example.com >>"
+export JIRA_API_TOKEN="<< JIRA_TOKEN_HERE >>"
+export GITHUB_TOKEN="<< GITHUB_TOKEN_HERE >>"
+export GITHUB_OWNER="<< GITHUB_OWNER_OR_ORG_HERE >>"
+export GITHUB_REPO="<< GITHUB_REPO_HERE >>"
