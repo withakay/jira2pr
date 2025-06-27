@@ -545,28 +545,93 @@ class JiraPRFormatter:
 
     def _extract_text_from_adf(self, adf_content):
         """
-        Extract plain text from Atlassian Document Format
+        Extract plain text from Atlassian Document Format with better formatting preservation
 
         Args:
             adf_content: ADF content dictionary
 
         Returns:
-            str: Extracted plain text
+            str: Extracted plain text with formatting
         """
-        def extract_text(node):
+        def extract_text(node, indent_level=0):
             if isinstance(node, dict):
-                if node.get('type') == 'text':
-                    return node.get('text', '')
+                node_type = node.get('type', '')
+                
+                # Handle different node types
+                if node_type == 'text':
+                    text = node.get('text', '')
+                    # Handle text marks (bold, italic, etc.)
+                    marks = node.get('marks', [])
+                    for mark in marks:
+                        if mark.get('type') == 'strong':
+                            text = f"**{text}**"
+                        elif mark.get('type') == 'em':
+                            text = f"*{text}*"
+                        elif mark.get('type') == 'code':
+                            text = f"`{text}`"
+                    return text
+                
+                elif node_type == 'paragraph':
+                    content = ''.join(extract_text(child, indent_level) for child in node.get('content', []))
+                    return content + '\n\n' if content else ''
+                
+                elif node_type == 'heading':
+                    level = node.get('attrs', {}).get('level', 1)
+                    content = ''.join(extract_text(child, indent_level) for child in node.get('content', []))
+                    return '#' * level + ' ' + content + '\n\n' if content else ''
+                
+                elif node_type == 'bulletList':
+                    items = []
+                    for child in node.get('content', []):
+                        items.append(extract_text(child, indent_level))
+                    return ''.join(items) + '\n' if items else ''
+                
+                elif node_type == 'orderedList':
+                    items = []
+                    for i, child in enumerate(node.get('content', []), 1):
+                        items.append(extract_text(child, i))
+                    return ''.join(items) + '\n' if items else ''
+                
+                elif node_type == 'listItem':
+                    # indent_level is used as the order number for ordered lists
+                    if isinstance(indent_level, int) and indent_level > 0:
+                        prefix = f"{indent_level}. "
+                    else:
+                        prefix = "- "
+                    content = ''.join(extract_text(child, 0) for child in node.get('content', []))
+                    # Remove trailing newlines from list item content
+                    content = content.rstrip('\n')
+                    return prefix + content + '\n'
+                
+                elif node_type == 'codeBlock':
+                    content = ''.join(extract_text(child, indent_level) for child in node.get('content', []))
+                    return f"```\n{content}\n```\n\n" if content else ''
+                
+                elif node_type == 'blockquote':
+                    content = ''.join(extract_text(child, indent_level) for child in node.get('content', []))
+                    # Add > prefix to each line
+                    lines = content.strip().split('\n')
+                    quoted = '\n'.join('> ' + line for line in lines if line)
+                    return quoted + '\n\n' if quoted else ''
+                
+                elif node_type == 'hardBreak':
+                    return '\n'
+                
                 elif 'content' in node:
-                    return ''.join(extract_text(child) for child in node['content'])
+                    return ''.join(extract_text(child, indent_level) for child in node['content'])
                 else:
                     return ''
+                    
             elif isinstance(node, list):
-                return ''.join(extract_text(item) for item in node)
+                return ''.join(extract_text(item, indent_level) for item in node)
             else:
                 return str(node) if node else ""
 
-        return extract_text(adf_content)
+        # Extract text and clean up excessive newlines
+        text = extract_text(adf_content)
+        # Replace multiple newlines with max 2
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        return text.strip()
 
 
 def main():
@@ -759,6 +824,11 @@ def main():
     # Don't generate if we're just finding a PR
     need_description = args.output or isinstance(args.update_pr, int)
 
+    # Initialize variables
+    should_update = False
+    pr_description = None
+    current_description = None
+
     # Generate PR description if needed
     if need_description:
         pr_description = formatter.format_description_for_pr(
@@ -768,9 +838,13 @@ def main():
 
         # Output the result if requested (file output)
         if args.output:
-            with open(args.output, 'w', encoding='utf-8') as f:
-                f.write(pr_description)
-            print(f"PR description saved to: {args.output}")
+            if args.output == '-':
+                # Output to stdout
+                print(pr_description)
+            else:
+                with open(args.output, 'w', encoding='utf-8') as f:
+                    f.write(pr_description)
+                print(f"PR description saved to: {args.output}")
 
         # Update PR if requested
         if isinstance(args.update_pr, int):
@@ -788,10 +862,10 @@ def main():
                     print(f"PR #{args.update_pr} already contains Jira ticket information. No changes needed.")
                     sys.exit(0)
 
-    if not args.github_repo:
-        print("Error: GitHub repo is required. Set GITHUB_REPO environment variable or use --github-repo")
-        sys.exit(1)
-
+            # Validate GitHub parameters are available for update
+            if not args.github_repo:
+                print("Error: GitHub repo is required. Set GITHUB_REPO environment variable or use --github-repo")
+                sys.exit(1)
 
     # Only if we need to update, show the description and update the PR
     if should_update:

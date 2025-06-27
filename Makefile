@@ -13,6 +13,7 @@ help:
 	@echo "Available targets:"
 	@echo "  make install       - Install dependencies using uv"
 	@echo "  make run TICKET=X  - Run jira2pr for a specific ticket"
+	@echo "  make get-ticket TICKET=X - Get ticket body from JIRA"
 	@echo "  make batch         - Run batch update for all open PRs"
 	@echo "  make batch-dry     - Run batch update in dry-run mode"
 	@echo "  make test          - Run tests"
@@ -54,6 +55,14 @@ ifndef TICKET
 endif
 	cd $(SCRIPT_DIR) && $(PYTHON) jira2pr.py $(TICKET) --output pr-description.md
 	@echo "PR description saved to $(SCRIPT_DIR)/pr-description.md"
+
+# Get ticket details
+.PHONY: get-ticket
+get-ticket:
+ifndef TICKET
+	$(error TICKET is not set. Usage: make get-ticket TICKET=PROJ-123)
+endif
+	cd $(SCRIPT_DIR) && $(PYTHON) jira2pr.py $(TICKET) --output -
 
 # Find PR for a ticket
 .PHONY: find-pr
